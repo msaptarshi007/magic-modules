@@ -257,6 +257,11 @@ func ResourceSqlDatabaseInstance() *schema.Resource {
 				ForceNew:    true,
 				Description: `The region the instance will sit in. Note, Cloud SQL is not available in all regions. A valid region must be provided to use this resource. If a region is not provided in the resource definition, the provider region will be used instead, but this will be an apply-time error for instances if the provider region is not supported with Cloud SQL. If you choose not to provide the region argument for this resource, make sure you understand this.`,
 			},
+			"database_center_integration_enabled": {
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Description: `If true, instance metadata is sent to the Database Center. If false, instance metadata is not sent to the Database Center.`,
+			},
 			"deletion_protection": {
 				Type:        schema.TypeBool,
 				Default:     true,
@@ -1780,6 +1785,11 @@ func resourceSqlDatabaseInstanceCreate(d *schema.ResourceData, meta interface{})
 		instance.SqlNetworkArchitecture = "NEW_NETWORK_ARCHITECTURE"
 	}
 
+	if v, ok := d.GetOkExists("database_center_integration_enabled"); ok {
+		instance.DatabaseCenterIntegrationEnabled = v.(bool)
+		instance.ForceSendFields = append(instance.ForceSendFields, "DatabaseCenterIntegrationEnabled")
+	}
+
 	cloneContext, cloneSourceInstance := expandCloneContext(d.Get("clone").([]interface{}))
 	
 	cloneSourceProject := expandCloneSourceProject(d.Get("clone").([]interface{}))
@@ -2548,6 +2558,11 @@ func resourceSqlDatabaseInstanceRead(d *schema.ResourceData, meta interface{}) e
 	if err := d.Set("maintenance_version", instance.MaintenanceVersion); err != nil {
 		return fmt.Errorf("Error setting maintenance_version: %s", err)
 	}
+	if _, ok := d.GetOkExists("database_center_integration_enabled"); ok || instance.DatabaseCenterIntegrationEnabled {
+		if err := d.Set("database_center_integration_enabled", instance.DatabaseCenterIntegrationEnabled); err != nil {
+			return fmt.Errorf("Error setting database_center_integration_enabled: %s", err)
+		}
+	}
 	if err := d.Set("psc_service_attachment_link", instance.PscServiceAttachmentLink); err != nil {
 		return fmt.Errorf("Error setting psc_service_attachment_link: %s", err)
 	}
@@ -3007,6 +3022,13 @@ func resourceSqlDatabaseInstanceUpdate(d *schema.ResourceData, meta interface{})
 
 	if _, ok := d.GetOk("instance_type"); ok {
 		instance.InstanceType = d.Get("instance_type").(string)
+	}
+
+	if d.HasChange("database_center_integration_enabled") {
+		if v, ok := d.GetOkExists("database_center_integration_enabled"); ok {
+			instance.DatabaseCenterIntegrationEnabled = v.(bool)
+			instance.ForceSendFields = append(instance.ForceSendFields, "DatabaseCenterIntegrationEnabled")
+		}
 	}
 
 	if _, ok := d.GetOk("node_count"); ok {
